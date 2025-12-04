@@ -8,6 +8,7 @@ import AdminDashboard from './pages/admin/Dashboard';
 import EmployeeDashboard from './pages/employee/Dashboard';
 import Expenses from './pages/Expenses';
 import Incomes from './pages/Incomes';
+import Export from './pages/Export';
 import Users from './pages/admin/Users';
 import Settings from './pages/admin/Settings';
 import ProtectedRoute from './routers/ProtectedRoute';
@@ -47,6 +48,12 @@ function App() {
             <Route path="/ingresos" element={<Incomes />} />
 
             {/* Admin Only Routes */}
+            <Route path="/exportar" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <Export />
+              </ProtectedRoute>
+            } />
+
             <Route path="/usuarios" element={
               <ProtectedRoute allowedRoles={['admin']}>
                 <Users />

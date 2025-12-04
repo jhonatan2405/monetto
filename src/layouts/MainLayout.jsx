@@ -13,7 +13,8 @@ import {
     X,
     Wallet,
     Sun,
-    Moon
+    Moon,
+    FileDown
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -33,6 +34,7 @@ export default function MainLayout() {
         { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['admin', 'empleado'] },
         { name: 'Gastos', href: '/gastos', icon: Receipt, roles: ['admin', 'empleado'] },
         { name: 'Ingresos', href: '/ingresos', icon: TrendingUp, roles: ['admin', 'empleado'] },
+        { name: 'Exportar', href: '/exportar', icon: FileDown, roles: ['admin'] },
         { name: 'Usuarios', href: '/usuarios', icon: Users, roles: ['admin'] },
         { name: 'Configuración', href: '/configuracion', icon: Settings, roles: ['admin'] },
     ];

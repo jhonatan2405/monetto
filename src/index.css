@@ -2,6 +2,58 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Base styles for better dark mode support */
+@layer base {
+
+  /* Scrollbar styles */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100 dark:bg-gray-800;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 dark:bg-gray-600 rounded-lg;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400 dark:bg-gray-500;
+  }
+
+  /* Input and select base styles */
+  input[type="text"],
+  input[type="email"],
+  input[type="password"],
+  input[type="number"],
+  input[type="date"],
+  input[type="time"],
+  select,
+  textarea {
+    @apply bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 border-gray-300 dark:border-gray-600;
+  }
+
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus,
+  input[type="number"]:focus,
+  input[type="date"]:focus,
+  input[type="time"]:focus,
+  select:focus,
+  textarea:focus {
+    @apply ring-primary-500 border-primary-500 dark:ring-primary-400 dark:border-primary-400;
+  }
+
+  /* Disabled state */
+  input:disabled,
+  select:disabled,
+  textarea:disabled {
+    @apply bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed;
+  }
+}
+
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;
@@ -10,7 +62,18 @@
 
   .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
     background-color: #d1d5db;
-    border-radius: 3px;
+  }
+
+  .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb:hover {
+    background-color: #9ca3af;
+  }
+
+  .dark .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb {
+    background-color: #4b5563;
+  }
+
+  .dark .scrollbar-thumb-gray-300::-webkit-scrollbar-thumb:hover {
+    background-color: #6b7280;
   }
 
   .scrollbar-track-transparent::-webkit-scrollbar-track {
@@ -114,6 +177,10 @@
     transform: translateY(-2px);
     box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
   }
+
+  .dark .hover-lift:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  }
 }
 
 /* Loading spinner */
@@ -145,11 +212,20 @@
     background: white;
   }
 
+  .dark .mobile-stack-table tr {
+    border-color: #374151;
+    background: #1f2937;
+  }
+
   .mobile-stack-table td {
     display: flex;
     justify-content: space-between;
     padding: 0.5rem 0;
     border-bottom: 1px solid #f3f4f6;
+  }
+
+  .dark .mobile-stack-table td {
+    border-bottom-color: #374151;
   }
 
   .mobile-stack-table td:last-child {
@@ -161,6 +237,10 @@
     font-weight: 600;
     color: #6b7280;
     margin-right: 1rem;
+  }
+
+  .dark .mobile-stack-table td::before {
+    color: #9ca3af;
   }
 
   /* Responsive modal */

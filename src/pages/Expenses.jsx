@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase, withTimeout, withRetry } from '../services/supabase';
 import { useAuthStore } from '../store/useAuthStore';
-import { formatCurrency, formatDateTime, exportToCSV } from '../utils/format';
+import { formatCurrency, formatDateOnly, formatDateTimeLocal, formatTimeOnly, exportToCSV, downloadFile, isPDF } from '../utils/format';
 import { Plus, Trash2, Edit2, Loader2, X, Filter, Eye, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -80,7 +80,7 @@ export default function Expenses() {
           metodos_pago (nombre),
           users (email)
         `)
-                .order('fecha', { ascending: false });
+                .order('created_at', { ascending: false });
 
             if (role === 'empleado') {
                 query = query.eq('usuario_id', user.id);
@@ -256,9 +256,9 @@ export default function Expenses() {
 
     const getEstadoBadge = (estado) => {
         const colors = {
-            registrado: 'bg-blue-100 text-blue-800',
-            pendiente: 'bg-yellow-100 text-yellow-800',
-            aprobado: 'bg-green-100 text-green-800'
+            aprobado: 'bg-success-100 dark:bg-success-900/30 text-success-800 dark:text-success-400',
+            rechazado: 'bg-error-100 dark:bg-error-900/30 text-error-800 dark:text-error-400',
+            registrado: 'bg-warning-100 dark:bg-warning-900/30 text-warning-800 dark:text-warning-400'
         };
         return (
             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${colors[estado]}`}>
@@ -269,7 +269,8 @@ export default function Expenses() {
 
     const handleExport = () => {
         const exportData = filteredExpenses.map(e => ({
-            Fecha: e.fecha,
+            Fecha: formatDateOnly(e.fecha),
+            Hora: formatTimeOnly(e.created_at),
             Descripción: e.descripcion,
             Categoría: e.categorias?.nombre,
             Monto: e.monto,
@@ -279,6 +280,15 @@ export default function Expenses() {
         }));
         exportToCSV(exportData, 'gastos');
         toast.success('Gastos exportados exitosamente');
+    };
+
+    const handleDownload = async (url, filename) => {
+        try {
+            await downloadFile(url, filename);
+            toast.success('Descarga iniciada');
+        } catch (error) {
+            toast.error('Error al descargar el archivo');
+        }
     };
 
     if (loading) return <LoadingSpinner text="Cargando gastos..." />;
@@ -393,6 +403,7 @@ export default function Expenses() {
                         <thead className="bg-gray-50 dark:bg-gray-900">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fecha</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Hora</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descripción</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoría</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Monto</th>
@@ -411,7 +422,10 @@ export default function Expenses() {
                                 filteredExpenses.map((expense) => (
                                     <tr key={expense.id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {formatDateTime(expense.fecha)}
+                                            {formatDateOnly(expense.fecha)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            {formatTimeOnly(expense.created_at)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                             {expense.descripcion}
@@ -438,14 +452,13 @@ export default function Expenses() {
                                                     >
                                                         <Eye className="h-5 w-5" />
                                                     </button>
-                                                    <a
-                                                        href={expense.factura_url}
-                                                        download
-                                                        className="text-green-600 hover:text-green-900"
+                                                    <button
+                                                        onClick={() => handleDownload(expense.factura_url, `factura_${expense.id}.pdf`)}
+                                                        className="text-success-600 hover:text-success-700 dark:text-success-400 dark:hover:text-success-300"
                                                         title="Descargar factura"
                                                     >
                                                         <Download className="h-5 w-5" />
-                                                    </a>
+                                                    </button>
                                                 </div>
                                             ) : '-'}
                                         </td>
@@ -462,7 +475,7 @@ export default function Expenses() {
                                                         </button>
                                                         <button
                                                             onClick={() => openDeleteConfirm(expense.id)}
-                                                            className="text-red-600 hover:text-red-900 transition-smooth"
+                                                            className="text-error-600 hover:text-error-700 dark:text-error-400 dark:hover:text-error-300 transition-smooth"
                                                             title="Eliminar"
                                                         >
                                                             <Trash2 className="h-5 w-5" />
@@ -631,21 +644,20 @@ export default function Expenses() {
                                         </button>
                                     </div>
                                     <div className="mt-4">
-                                        {previewUrl.endsWith('.pdf') ? (
+                                        {isPDF(previewUrl) ? (
                                             <iframe src={previewUrl} className="w-full h-96" title="PDF Preview" />
                                         ) : (
                                             <img src={previewUrl} alt="Factura" className="w-full h-auto max-h-96 object-contain" />
                                         )}
                                     </div>
                                     <div className="mt-4 flex justify-end">
-                                        <a
-                                            href={previewUrl}
-                                            download
+                                        <button
+                                            onClick={() => handleDownload(previewUrl, 'factura.pdf')}
                                             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
                                         >
                                             <Download className="mr-2 h-4 w-4" />
                                             Descargar
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </div>

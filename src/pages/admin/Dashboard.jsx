@@ -15,7 +15,7 @@ import {
     LineChart,
     Line
 } from 'recharts';
-import { formatCurrency, formatDateTime } from '../../utils/format';
+import { formatCurrency, formatDateOnly, formatTimeOnly } from '../../utils/format';
 import { Loader2, TrendingDown, TrendingUp, DollarSign, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function AdminDashboard() {
@@ -138,8 +138,8 @@ export default function AdminDashboard() {
                 { data: allGastos }
             ] = await dedupeQuery(queryKey, () =>
                 withRetry(() => withTimeout(Promise.all([
-                    supabase.from('ingresos').select('monto, metodo_id, fecha, descripcion, users(email)').gte('fecha', startDate).lte('fecha', endDate),
-                    supabase.from('gastos').select('monto, categoria_id, metodo_id, fecha, descripcion, users(email)').gte('fecha', startDate).lte('fecha', endDate),
+                    supabase.from('ingresos').select('*, metodos_pago(nombre), users(email), created_at').gte('fecha', startDate).lte('fecha', endDate),
+                    supabase.from('gastos').select('*, categorias(nombre), metodos_pago(nombre), users(email), created_at').gte('fecha', startDate).lte('fecha', endDate),
                     supabase.from('ingresos').select('monto').gte('fecha', prevStartDate).lte('fecha', prevEndDate),
                     supabase.from('gastos').select('monto').gte('fecha', prevStartDate).lte('fecha', prevEndDate),
                     supabase.from('categorias').select('id, nombre'),
@@ -200,7 +200,7 @@ export default function AdminDashboard() {
             const allTransactions = [
                 ...(ingresos?.map(i => ({ ...i, type: 'ingreso' })) || []),
                 ...(gastos?.map(g => ({ ...g, type: 'gasto' })) || [])
-            ].sort((a, b) => new Date(b.fecha) - new Date(a.fecha)).slice(0, 10);
+            ].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 10);
 
             if (!signal?.aborted) {
                 setStats({
@@ -335,20 +335,20 @@ export default function AdminDashboard() {
             {/* Stats Cards */}
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {/* Ingresos Card */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-green-100 dark:border-green-800">
+                <div className="relative overflow-hidden bg-gradient-to-br from-success-50 to-success-100 dark:from-success-900/20 dark:to-success-800/20 rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-success-200 dark:border-success-800">
                     <div className="flex items-center justify-between">
                         <div className="flex-1">
-                            <p className="text-sm font-medium text-green-700 dark:text-green-400 mb-1">
+                            <p className="text-sm font-medium text-success-700 dark:text-success-400 mb-1">
                                 Ingresos {period === 'week' ? 'de la Semana' : period === 'month' ? 'del Mes' : 'del Año'}
                             </p>
                             <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(stats.totalIngresos)}</p>
-                            <div className={`flex items-center mt-2 text-sm font-medium ${ingresosChange >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <div className={`flex items-center mt-2 text-sm font-medium ${ingresosChange >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400'}`}>
                                 {ingresosChange >= 0 ? <ArrowUp className="h-4 w-4 mr-1" /> : <ArrowDown className="h-4 w-4 mr-1" />}
                                 {Math.abs(ingresosChange)}% vs {period === 'week' ? 'semana anterior' : period === 'month' ? 'mes anterior' : 'año anterior'}
                             </div>
                         </div>
                         <div className="flex-shrink-0">
-                            <div className="p-3 bg-green-500 dark:bg-green-600 rounded-xl">
+                            <div className="p-3 bg-success-500 dark:bg-success-600 rounded-xl">
                                 <TrendingUp className="h-8 w-8 text-white" />
                             </div>
                         </div>
@@ -356,20 +356,20 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Gastos Card */}
-                <div className="relative overflow-hidden bg-gradient-to-br from-red-50 to-rose-50 dark:from-red-900/20 dark:to-rose-900/20 rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-red-100 dark:border-red-800">
+                <div className="relative overflow-hidden bg-gradient-to-br from-error-50 to-error-100 dark:from-error-900/20 dark:to-error-800/20 rounded-2xl shadow-lg hover:shadow-xl transition-shadow p-6 border border-error-200 dark:border-error-800">
                     <div className="flex items-center justify-between">
                         <div className="flex-1">
-                            <p className="text-sm font-medium text-red-700 dark:text-red-400 mb-1">
+                            <p className="text-sm font-medium text-error-700 dark:text-error-400 mb-1">
                                 Gastos {period === 'week' ? 'de la Semana' : period === 'month' ? 'del Mes' : 'del Año'}
                             </p>
                             <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{formatCurrency(stats.totalGastos)}</p>
-                            <div className={`flex items-center mt-2 text-sm font-medium ${gastosChange >= 0 ? 'text-red-600 dark:text-red-400' : 'text-green-600 dark:text-green-400'}`}>
+                            <div className={`flex items-center mt-2 text-sm font-medium ${gastosChange >= 0 ? 'text-error-600 dark:text-error-400' : 'text-success-600 dark:text-success-400'}`}>
                                 {gastosChange >= 0 ? <ArrowUp className="h-4 w-4 mr-1" /> : <ArrowDown className="h-4 w-4 mr-1" />}
                                 {Math.abs(gastosChange)}% vs {period === 'week' ? 'semana anterior' : period === 'month' ? 'mes anterior' : 'año anterior'}
                             </div>
                         </div>
                         <div className="flex-shrink-0">
-                            <div className="p-3 bg-red-500 dark:bg-red-600 rounded-xl">
+                            <div className="p-3 bg-error-500 dark:bg-error-600 rounded-xl">
                                 <TrendingDown className="h-8 w-8 text-white" />
                             </div>
                         </div>
@@ -381,7 +381,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center justify-between">
                         <div className="flex-1">
                             <p className={`text-sm font-medium mb-1 ${stats.balance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-orange-700 dark:text-orange-400'}`}>Balance</p>
-                            <p className={`text-3xl font-bold ${stats.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <p className={`text-3xl font-bold ${stats.balance >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400'}`}>
                                 {formatCurrency(stats.balance)}
                             </p>
                             <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
@@ -411,7 +411,7 @@ export default function AdminDashboard() {
                                 contentStyle={{ backgroundColor: '#1F2937', border: 'none', borderRadius: '0.5rem', color: '#F3F4F6' }}
                             />
                             <Legend />
-                            <Line type="monotone" dataKey="ingresos" stroke="#10b981" name="Ingresos" strokeWidth={3} dot={{ r: 5 }} />
+                            <Line type="monotone" dataKey="ingresos" stroke="#22c55e" name="Ingresos" strokeWidth={3} dot={{ r: 5 }} />
                             <Line type="monotone" dataKey="gastos" stroke="#ef4444" name="Gastos" strokeWidth={3} dot={{ r: 5 }} />
                         </LineChart>
                     </ResponsiveContainer>
@@ -466,20 +466,26 @@ export default function AdminDashboard() {
                         <thead className="bg-gray-50 dark:bg-gray-900">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fecha</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Hora</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descripción</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Categoría/Tipo</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Monto</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Método</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Responsable</th>
-                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Monto</th>
                             </tr>
                         </thead>
                         <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                             {stats.recentTransactions.map((transaction, idx) => (
                                 <tr key={idx} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {formatDateTime(transaction.fecha)}
+                                        {formatDateOnly(transaction.fecha)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        {formatTimeOnly(transaction.created_at)}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.type === 'ingreso' ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400' : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400'}`}>
+                                        <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.type === 'ingreso' ? 'bg-success-100 dark:bg-success-900/30 text-success-800 dark:text-success-400' : 'bg-error-100 dark:bg-error-900/30 text-error-800 dark:text-error-400'}`}>
                                             {transaction.type === 'ingreso' ? 'Ingreso' : 'Gasto'}
                                         </span>
                                     </td>
@@ -487,10 +493,16 @@ export default function AdminDashboard() {
                                         {transaction.descripcion || '-'}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                        {transaction.users?.email || '-'}
+                                        {transaction.type === 'gasto' ? transaction.categorias?.nombre || '-' : transaction.tipo || '-'}
                                     </td>
-                                    <td className={`px-6 py-4 whitespace-nowrap text-sm text-right font-semibold ${transaction.type === 'ingreso' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                                        {transaction.type === 'ingreso' ? '+' : '-'}{formatCurrency(transaction.monto)}
+                                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-semibold ${transaction.type === 'ingreso' ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400'}`}>
+                                        {formatCurrency(transaction.monto)}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        {transaction.metodos_pago?.nombre || '-'}
+                                    </td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                        {transaction.users?.email || '-'}
                                     </td>
                                 </tr>
                             ))}

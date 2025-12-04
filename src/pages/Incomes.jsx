@@ -3,7 +3,7 @@ import { supabase, withTimeout, withRetry } from '../services/supabase';
 import { dedupeQuery, clearQueryCache } from '../utils/queryDedupe';
 import { usePageVisibility } from '../hooks/usePageVisibility';
 import { useAuthStore } from '../store/useAuthStore';
-import { formatCurrency, formatDateTime, exportToCSV } from '../utils/format';
+import { formatCurrency, formatDateOnly, formatDateTimeLocal, formatTimeOnly, exportToCSV, downloadFile, isPDF } from '../utils/format';
 import { Plus, Trash2, Edit2, Loader2, X, Filter, Eye, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import TableContainer from '../components/TableContainer';
@@ -88,7 +88,7 @@ export default function Incomes() {
           metodos_pago (nombre),
           users (email)
         `)
-                .order('fecha', { ascending: false });
+                .order('created_at', { ascending: false });
 
             if (role === 'empleado') {
                 query = query.eq('usuario_id', user.id);
@@ -281,7 +281,8 @@ export default function Incomes() {
 
     const handleExport = () => {
         const exportData = filteredIncomes.map(i => ({
-            Fecha: i.fecha,
+            Fecha: formatDateOnly(i.fecha),
+            Hora: formatTimeOnly(i.created_at),
             Descripción: i.descripcion,
             Tipo: i.tipo,
             Origen: i.origen,
@@ -291,6 +292,15 @@ export default function Incomes() {
         }));
         exportToCSV(exportData, 'ingresos');
         toast.success('Ingresos exportados exitosamente');
+    };
+
+    const handleDownload = async (url, filename) => {
+        try {
+            await downloadFile(url, filename);
+            toast.success('Descarga iniciada');
+        } catch (error) {
+            toast.error('Error al descargar el archivo');
+        }
     };
 
     return (
@@ -389,6 +399,7 @@ export default function Incomes() {
                         <thead className="bg-gray-50 dark:bg-gray-900">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Fecha</th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Hora</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Descripción</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Tipo</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Origen</th>
@@ -408,7 +419,10 @@ export default function Incomes() {
                                 filteredIncomes.map((income) => (
                                     <tr key={income.id}>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                                            {formatDateTime(income.fecha)}
+                                            {formatDateOnly(income.fecha)}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                            {formatTimeOnly(income.created_at)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
                                             {income.descripcion}
@@ -419,7 +433,7 @@ export default function Incomes() {
                                         <td className="px-6 py-4 text-sm text-gray-500">
                                             {income.origen || '-'}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-success-600 dark:text-success-400">
                                             {formatCurrency(income.monto)}
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -438,14 +452,13 @@ export default function Incomes() {
                                                     >
                                                         <Eye className="h-5 w-5" />
                                                     </button>
-                                                    <a
-                                                        href={income.archivo_url}
-                                                        download
-                                                        className="text-green-600 hover:text-green-900"
+                                                    <button
+                                                        onClick={() => handleDownload(income.archivo_url, `comprobante_${income.id}.pdf`)}
+                                                        className="text-success-600 hover:text-success-700 dark:text-success-400 dark:hover:text-success-300"
                                                         title="Descargar archivo"
                                                     >
                                                         <Download className="h-5 w-5" />
-                                                    </a>
+                                                    </button>
                                                 </div>
                                             ) : '-'}
                                         </td>
@@ -462,7 +475,7 @@ export default function Incomes() {
                                                         </button>
                                                         <button
                                                             onClick={() => handleDelete(income.id)}
-                                                            className="text-red-600 hover:text-red-900"
+                                                            className="text-error-600 hover:text-error-700 dark:text-error-400 dark:hover:text-error-300"
                                                             title="Eliminar"
                                                         >
                                                             <Trash2 className="h-5 w-5" />
@@ -627,21 +640,20 @@ export default function Incomes() {
                                         </button>
                                     </div>
                                     <div className="mt-4">
-                                        {previewUrl.endsWith('.pdf') ? (
+                                        {isPDF(previewUrl) ? (
                                             <iframe src={previewUrl} className="w-full h-96" title="PDF Preview" />
                                         ) : (
                                             <img src={previewUrl} alt="Comprobante" className="w-full h-auto max-h-96 object-contain" />
                                         )}
                                     </div>
                                     <div className="mt-4 flex justify-end">
-                                        <a
-                                            href={previewUrl}
-                                            download
+                                        <button
+                                            onClick={() => handleDownload(previewUrl, 'comprobante.pdf')}
                                             className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700"
                                         >
                                             <Download className="mr-2 h-4 w-4" />
                                             Descargar
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
