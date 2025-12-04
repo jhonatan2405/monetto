@@ -1,5 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase, withTimeout, withRetry } from '../services/supabase';
+import { dedupeQuery, clearQueryCache } from '../utils/queryDedupe';
+import { usePageVisibility } from '../hooks/usePageVisibility';
 import { useAuthStore } from '../store/useAuthStore';
 import { formatCurrency, formatDateTime, exportToCSV } from '../utils/format';
 import { Plus, Trash2, Edit2, Loader2, X, Filter, Eye, Download } from 'lucide-react';
@@ -35,6 +37,17 @@ export default function Incomes() {
         archivo_file: null
     });
 
+    // Función para recargar datos
+    const reloadData = useCallback(() => {
+        console.log('🔄 Recargando ingresos...');
+        clearQueryCache('ingresos');
+        const abortController = new AbortController();
+        fetchIncomes(abortController.signal);
+    }, []);
+
+    // Detectar cuando el usuario vuelve a la pestaña
+    usePageVisibility(reloadData);
+
     useEffect(() => {
         const abortController = new AbortController();
         fetchIncomes(abortController.signal);
@@ -52,7 +65,10 @@ export default function Incomes() {
 
     const fetchMetadata = async (signal) => {
         try {
-            const { data: metData } = await supabase.from('metodos_pago').select('*').eq('activo', true);
+            const queryKey = 'metadata_metodos_pago';
+            const { data: metData } = await dedupeQuery(queryKey, () =>
+                supabase.from('metodos_pago').select('*').eq('activo', true)
+            );
             if (!signal?.aborted) {
                 setPaymentMethods(metData || []);
             }
@@ -78,7 +94,10 @@ export default function Incomes() {
                 query = query.eq('usuario_id', user.id);
             }
 
-            const { data, error } = await withRetry(() => withTimeout(query));
+            const queryKey = `ingresos_${role}_${user.id}`;
+            const { data, error } = await dedupeQuery(queryKey, () =>
+                withRetry(() => withTimeout(query))
+            );
 
             if (error) {
                 console.error('Error fetching incomes:', error);
@@ -222,6 +241,10 @@ export default function Incomes() {
                 toast.success('Ingreso registrado exitosamente');
             }
 
+            // Invalidar caché para forzar recarga
+            clearQueryCache('ingresos');
+            clearQueryCache('dashboard');
+
             setIsModalOpen(false);
             setEditingIncome(null);
             fetchIncomes();
@@ -239,6 +262,11 @@ export default function Incomes() {
         try {
             const { error } = await supabase.from('ingresos').delete().eq('id', id);
             if (error) throw error;
+
+            // Invalidar caché
+            clearQueryCache('ingresos');
+            clearQueryCache('dashboard');
+
             toast.success('Ingreso eliminado');
             fetchIncomes();
         } catch (error) {

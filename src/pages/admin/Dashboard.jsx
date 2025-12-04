@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { supabase, withTimeout, withRetry } from '../../services/supabase';
+import { dedupeQuery, clearQueryCache } from '../../utils/queryDedupe';
+import { usePageVisibility } from '../../hooks/usePageVisibility';
 import TableContainer from '../../components/TableContainer';
 import {
     BarChart,
@@ -35,6 +37,17 @@ export default function AdminDashboard() {
     const [selectedMonth, setSelectedMonth] = useState(today.getMonth());
     const [selectedYear, setSelectedYear] = useState(today.getFullYear());
     const [selectedWeek, setSelectedWeek] = useState(0); // Semana actual
+
+    // Función para recargar datos (memoizada para evitar recreaciones)
+    const reloadData = useCallback(() => {
+        console.log('🔄 Recargando datos del Dashboard...');
+        clearQueryCache('dashboard'); // Limpiar caché para forzar recarga
+        const abortController = new AbortController();
+        fetchDashboardData(abortController.signal);
+    }, [period, selectedMonth, selectedYear, selectedWeek]);
+
+    // Detectar cuando el usuario vuelve a la pestaña
+    usePageVisibility(reloadData);
 
     useEffect(() => {
         const abortController = new AbortController();
@@ -111,6 +124,9 @@ export default function AdminDashboard() {
             // OPTIMIZACIÓN: Obtener datos de los últimos 6 meses para la tendencia
             const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1).toISOString().split('T')[0];
 
+            // Usar dedupeQuery para evitar consultas duplicadas
+            const queryKey = `dashboard_${period}_${startDate}_${endDate}`;
+
             const [
                 { data: ingresos },
                 { data: gastos },
@@ -120,17 +136,19 @@ export default function AdminDashboard() {
                 { data: metodos },
                 { data: allIngresos },
                 { data: allGastos }
-            ] = await withRetry(() => withTimeout(Promise.all([
-                supabase.from('ingresos').select('monto, metodo_id, fecha, descripcion, users(email)').gte('fecha', startDate).lte('fecha', endDate),
-                supabase.from('gastos').select('monto, categoria_id, metodo_id, fecha, descripcion, users(email)').gte('fecha', startDate).lte('fecha', endDate),
-                supabase.from('ingresos').select('monto').gte('fecha', prevStartDate).lte('fecha', prevEndDate),
-                supabase.from('gastos').select('monto').gte('fecha', prevStartDate).lte('fecha', prevEndDate),
-                supabase.from('categorias').select('id, nombre'),
-                supabase.from('metodos_pago').select('id, nombre'),
-                // Nueva consulta única para tendencia mensual
-                supabase.from('ingresos').select('monto, fecha').gte('fecha', sixMonthsAgo),
-                supabase.from('gastos').select('monto, fecha').gte('fecha', sixMonthsAgo)
-            ])));
+            ] = await dedupeQuery(queryKey, () =>
+                withRetry(() => withTimeout(Promise.all([
+                    supabase.from('ingresos').select('monto, metodo_id, fecha, descripcion, users(email)').gte('fecha', startDate).lte('fecha', endDate),
+                    supabase.from('gastos').select('monto, categoria_id, metodo_id, fecha, descripcion, users(email)').gte('fecha', startDate).lte('fecha', endDate),
+                    supabase.from('ingresos').select('monto').gte('fecha', prevStartDate).lte('fecha', prevEndDate),
+                    supabase.from('gastos').select('monto').gte('fecha', prevStartDate).lte('fecha', prevEndDate),
+                    supabase.from('categorias').select('id, nombre'),
+                    supabase.from('metodos_pago').select('id, nombre'),
+                    // Nueva consulta única para tendencia mensual
+                    supabase.from('ingresos').select('monto, fecha').gte('fecha', sixMonthsAgo),
+                    supabase.from('gastos').select('monto, fecha').gte('fecha', sixMonthsAgo)
+                ])))
+            );
 
             // Verificar si fue cancelado
             if (signal?.aborted) return;
